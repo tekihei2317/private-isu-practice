@@ -18,7 +18,15 @@ OUTFORMAT=count,method,uri,min,max,sum,avg,p99
 alp:
 	sudo alp ltsv --file=$(NGINX_LOG) --sort $(ALPSORT) --reverse -o $(OUTFORMAT) -m $(ALPM) > measurements/alp/$(TIMESTAMP).log
 
+pt-query-digest:
+	sudo pt-query-digest $(MYSQL_LOG) > measurements/query/$(TIMESTAMP).log
+
 bench:
 	echo '' | sudo tee $(NGINX_LOG) > /dev/null
+	echo '' | sudo tee $(MYSQL_LOG) > /dev/null
 	ab -c 1 -t 30 http://localhost/ > measurements/score/$(TIMESTAMP).log
 	@make alp
+	@make pt-query-digest
+
+setup:
+	sudo apt install -y percona-toolkit
