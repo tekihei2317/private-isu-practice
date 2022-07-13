@@ -11,6 +11,9 @@ reload-mysql:
 	cat settings/mysql/mysql.conf.d/mysqld.cnf | sudo tee /etc/mysql/mysql.conf.d/mysqld.cnf > /dev/null
 	sudo systemctl restart mysql.service
 
+mysql:
+	mysql -u isuconp -p
+
 ALPSORT=sum
 ALPM="/TODO:"
 OUTFORMAT=count,method,uri,min,max,sum,avg,p99
