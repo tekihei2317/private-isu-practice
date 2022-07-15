@@ -141,7 +141,26 @@ module Isuconp
         posts
       end
 
-      def make_posts_improved(results, all_comments: false)
+      def make_comment(comment)
+        formatted_comment = {
+          id: comment[:id],
+          post_id: comment[:post_id],
+          user_id: comment[:user_id],
+          comment: comment[:comment],
+          created_at: comment[:created_at],
+        }
+        formatted_comment[:user] = {
+          id: comment[:u_id],
+          account_name: comment[:u_account_name],
+          passhash: comment[:u_passhash],
+          authority: comment[:u_authority],
+          del_flg: comment[:u_del_flg],
+          created_at: comment[:u_created_at],
+        }
+        formatted_comment
+      end
+
+      def make_posts_improved(results)
         posts = []
 
         # コメント個数取得クエリ
@@ -165,14 +184,15 @@ module Isuconp
           'users.created_at as u_created_at',
         ]
 
-        comments_query = "SELECT #{comments_columns.join(', ')} FROM comments join users on users.id = comments.user_id WHERE post_id = ? ORDER BY comments.created_at DESC"
-        unless all_comments
-          comments_query += ' LIMIT 3'
-        end
-        comment_statement = db.prepare(comments_query)
+        post_ids = results.to_a.map { |post| post[:id] }
+        comments_query = "SELECT #{comments_columns.join(', ')} FROM comments join users on users.id = comments.user_id" + " WHERE comments.post_id in (#{post_ids.join(', ')})" + " ORDER BY comments.created_at DESC"
 
-        # ユーザー取得クエリ
-        user_statement = db.prepare('SELECT * FROM `users` WHERE `id` = ?')
+        comments = db.query(comments_query).to_a
+        comments = comments.map do |comment|
+          make_comment(comment)
+        end
+
+        comments_by_post_id = comments.group_by { |comment| comment[:post_id] }
 
         results.to_a.each do |post|
           formatted_post = {
@@ -182,32 +202,8 @@ module Isuconp
             created_at: post[:created_at],
             mime: post[:mime],
           }
-          formatted_post[:comment_count] = comment_count_statement.execute(
-            post[:id]
-          ).first[:count]
-
-          comments = comment_statement.execute(
-            post[:id]
-          ).to_a
-          comments = comments.map do |comment|
-            formatted_comment = {
-              id: comment[:id],
-              post_id: comment[:post_id],
-              user_id: comment[:user_id],
-              comment: comment[:comment],
-              created_at: comment[:created_at],
-            }
-            formatted_comment[:user] = {
-              id: comment[:u_id],
-              account_name: comment[:u_account_name],
-              passhash: comment[:u_passhash],
-              authority: comment[:u_authority],
-              del_flg: comment[:u_del_flg],
-              created_at: comment[:u_created_at],
-            }
-            formatted_comment
-          end
-          formatted_post[:comments] = comments.reverse # TODO: クエリでソートする
+          formatted_post[:comment_count] = comments_by_post_id[post[:id]].size # TODO: コメントがない場合
+          formatted_post[:comments] = comments_by_post_id[post[:id]].slice(0, 3)
 
           formatted_post[:user] = {
             id: post[:users_id],

@@ -1,0 +1,8 @@
+make[1]: Entering directory '/home/isucon/private_isu/webapp'
+sudo alp ltsv --file=/var/log/nginx/access.log --sort sum --reverse -o count,method,uri,min,max,sum,avg,p99 -m "/TODO:"
++-------+--------+-----+-------+-------+--------+-------+-------+
+| COUNT | METHOD | URI |  MIN  |  MAX  |  SUM   |  AVG  |  P99  |
++-------+--------+-----+-------+-------+--------+-------+-------+
+|  3059 | GET    | /   | 0.008 | 0.024 | 29.528 | 0.010 | 0.012 |
++-------+--------+-----+-------+-------+--------+-------+-------+
+make[1]: Leaving directory '/home/isucon/private_isu/webapp'
