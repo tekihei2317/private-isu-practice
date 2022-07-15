@@ -1,4 +1,5 @@
 require 'sinatra/base'
+require 'sinatra/json'
 require 'mysql2'
 require 'rack-flash'
 require 'shellwords'
@@ -130,6 +131,46 @@ module Isuconp
         posts
       end
 
+      def make_posts_improved(results, all_comments: false)
+        posts = []
+        results.to_a.each do |post|
+          post[:comment_count] = db.prepare('SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?').execute(
+            post[:id]
+          ).first[:count]
+
+          query = 'SELECT * FROM `comments` WHERE `post_id` = ? ORDER BY `created_at` DESC'
+          unless all_comments
+            query += ' LIMIT 3'
+          end
+          comments = db.prepare(query).execute(
+            post[:id]
+          ).to_a
+          comments.each do |comment|
+            comment[:user] = db.prepare('SELECT * FROM `users` WHERE `id` = ?').execute(
+              comment[:user_id]
+            ).first
+          end
+          post[:comments] = comments.reverse
+
+          post[:user] = db.prepare('SELECT * FROM `users` WHERE `id` = ?').execute(
+            post[:user_id]
+          ).first
+
+          post[:user] = {
+            id: post[:users_id],
+            account_name: post[:users_account_name],
+            passhash: post[:users_passhash],
+            authority: post[:users_authority],
+            del_flg: post[:users_del_flg],
+            created_at: post[:users_created_at],
+          }
+          posts.push(post) if post[:user][:del_flg] == 0
+          break if posts.length >= POSTS_PER_PAGE
+        end
+
+        posts
+      end
+
       def image_url(post)
         ext = ""
         if post[:mime] == "image/jpeg"
@@ -224,8 +265,25 @@ module Isuconp
     get '/' do
       me = get_session_user()
 
-      results = db.query("SELECT `id`, `user_id`, `body`, `created_at`, `mime` FROM `posts` ORDER BY `created_at` DESC LIMIT #{POSTS_PER_PAGE}")
-      posts = make_posts(results)
+      columns = [
+        # posts
+        'posts.id',
+        'posts.user_id',
+        'posts.body',
+        'posts.created_at',
+        'posts.mime',
+
+        # users
+        'users.id as users_id',
+        'users.account_name as users_account_name',
+        'users.passhash as users_passhash',
+        'users.authority as users_authority',
+        'users.del_flg as users_del_flg',
+        'users.created_at as users_created_at',
+      ]
+
+      results = db.query("select #{columns.join(', ')} from posts join users on posts.user_id = users.id order by posts.created_at desc limit 20;")
+      posts = make_posts_improved(results)
 
       erb :index, layout: :layout, locals: { posts: posts, me: me }
     end

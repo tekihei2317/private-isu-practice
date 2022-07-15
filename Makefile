@@ -7,6 +7,9 @@ reload-nginx:
 	cat settings/nginx/nginx.conf | sudo tee /etc/nginx/nginx.conf > /dev/null
 	sudo nginx -s reload
 
+reload-app:
+	sudo systemctl restart isu-ruby.service
+
 reload-mysql:
 	cat settings/mysql/mysql.conf.d/mysqld.cnf | sudo tee /etc/mysql/mysql.conf.d/mysqld.cnf > /dev/null
 	sudo systemctl restart mysql.service
