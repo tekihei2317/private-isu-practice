@@ -101,26 +101,36 @@ module Isuconp
 
       def make_posts(results, all_comments: false)
         posts = []
+
+        # コメント個数取得クエリ
+        comment_count_statement = db.prepare('SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?')
+
+        # コメント取得クエリ
+        comments_query = 'SELECT * FROM `comments` WHERE `post_id` = ? ORDER BY `created_at` DESC'
+        unless all_comments
+          query += ' LIMIT 3'
+        end
+        comment_statement = db.prepare(comments_query)
+
+        # ユーザー取得クエリ
+        user_statement = db.prepare('SELECT * FROM `users` WHERE `id` = ?')
+
         results.to_a.each do |post|
-          post[:comment_count] = db.prepare('SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?').execute(
+          post[:comment_count] = comment_count_statement.execute(
             post[:id]
           ).first[:count]
 
-          query = 'SELECT * FROM `comments` WHERE `post_id` = ? ORDER BY `created_at` DESC'
-          unless all_comments
-            query += ' LIMIT 3'
-          end
-          comments = db.prepare(query).execute(
+          comments = comment_statement.execute(
             post[:id]
           ).to_a
           comments.each do |comment|
-            comment[:user] = db.prepare('SELECT * FROM `users` WHERE `id` = ?').execute(
+            comment[:user] = user_statement.execute(
               comment[:user_id]
             ).first
           end
           post[:comments] = comments.reverse
 
-          post[:user] = db.prepare('SELECT * FROM `users` WHERE `id` = ?').execute(
+          post[:user] = user_statement.execute(
             post[:user_id]
           ).first
 
@@ -133,8 +143,22 @@ module Isuconp
 
       def make_posts_improved(results, all_comments: false)
         posts = []
+
+        # コメント個数取得クエリ
+        comment_count_statement = db.prepare('SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?')
+
+        # コメント取得クエリ
+        comments_query = 'SELECT * FROM `comments` WHERE `post_id` = ? ORDER BY `created_at` DESC'
+        unless all_comments
+          comments_query += ' LIMIT 3'
+        end
+        comment_statement = db.prepare(comments_query)
+
+        # ユーザー取得クエリ
+        user_statement = db.prepare('SELECT * FROM `users` WHERE `id` = ?')
+
         results.to_a.each do |post|
-          post[:comment_count] = db.prepare('SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?').execute(
+          post[:comment_count] = comment_count_statement.execute(
             post[:id]
           ).first[:count]
 
@@ -142,19 +166,15 @@ module Isuconp
           unless all_comments
             query += ' LIMIT 3'
           end
-          comments = db.prepare(query).execute(
+          comments = comment_statement.execute(
             post[:id]
           ).to_a
           comments.each do |comment|
-            comment[:user] = db.prepare('SELECT * FROM `users` WHERE `id` = ?').execute(
+            comment[:user] = user_statement.execute(
               comment[:user_id]
             ).first
           end
           post[:comments] = comments.reverse
-
-          post[:user] = db.prepare('SELECT * FROM `users` WHERE `id` = ?').execute(
-            post[:user_id]
-          ).first
 
           post[:user] = {
             id: post[:users_id],
