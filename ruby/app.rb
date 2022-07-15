@@ -148,7 +148,24 @@ module Isuconp
         comment_count_statement = db.prepare('SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?')
 
         # コメント取得クエリ
-        comments_query = 'SELECT * FROM `comments` WHERE `post_id` = ? ORDER BY `created_at` DESC'
+        comments_columns = [
+          # comments
+          'comments.id',
+          'comments.post_id',
+          'comments.user_id',
+          'comments.comment',
+          'comments.created_at',
+
+          # users
+          'users.id as u_id',
+          'users.account_name as u_account_name',
+          'users.passhash as u_passhash',
+          'users.authority as u_authority',
+          'users.del_flg as u_del_flg',
+          'users.created_at as u_created_at',
+        ]
+
+        comments_query = "SELECT #{comments_columns.join(', ')} FROM comments join users on users.id = comments.user_id WHERE post_id = ? ORDER BY comments.created_at DESC"
         unless all_comments
           comments_query += ' LIMIT 3'
         end
@@ -169,19 +186,28 @@ module Isuconp
             post[:id]
           ).first[:count]
 
-          query = 'SELECT * FROM `comments` WHERE `post_id` = ? ORDER BY `created_at` DESC'
-          unless all_comments
-            query += ' LIMIT 3'
-          end
           comments = comment_statement.execute(
             post[:id]
           ).to_a
-          comments.each do |comment|
-            comment[:user] = user_statement.execute(
-              comment[:user_id]
-            ).first
+          comments = comments.map do |comment|
+            formatted_comment = {
+              id: comment[:id],
+              post_id: comment[:post_id],
+              user_id: comment[:user_id],
+              comment: comment[:comment],
+              created_at: comment[:created_at],
+            }
+            formatted_comment[:user] = {
+              id: comment[:u_id],
+              account_name: comment[:u_account_name],
+              passhash: comment[:u_passhash],
+              authority: comment[:u_authority],
+              del_flg: comment[:u_del_flg],
+              created_at: comment[:u_created_at],
+            }
+            formatted_comment
           end
-          formatted_post[:comments] = comments.reverse
+          formatted_post[:comments] = comments.reverse # TODO: クエリでソートする
 
           formatted_post[:user] = {
             id: post[:users_id],
@@ -312,9 +338,7 @@ module Isuconp
       results = db.query("select #{columns.join(', ')} from posts join users on posts.user_id = users.id order by posts.created_at desc limit 20;")
       posts = make_posts_improved(results)
 
-      # erb :index, layout: :layout, locals: { posts: posts, me: me }
-      json posts
-      # json results.to_a
+      erb :index, layout: :layout, locals: { posts: posts, me: me }
     end
 
     get '/@:account_name' do
