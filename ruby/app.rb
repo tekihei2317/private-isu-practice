@@ -158,7 +158,14 @@ module Isuconp
         user_statement = db.prepare('SELECT * FROM `users` WHERE `id` = ?')
 
         results.to_a.each do |post|
-          post[:comment_count] = comment_count_statement.execute(
+          formatted_post = {
+            id: post[:id],
+            user_id: post[:user_id],
+            body: post[:body],
+            created_at: post[:created_at],
+            mime: post[:mime],
+          }
+          formatted_post[:comment_count] = comment_count_statement.execute(
             post[:id]
           ).first[:count]
 
@@ -174,9 +181,9 @@ module Isuconp
               comment[:user_id]
             ).first
           end
-          post[:comments] = comments.reverse
+          formatted_post[:comments] = comments.reverse
 
-          post[:user] = {
+          formatted_post[:user] = {
             id: post[:users_id],
             account_name: post[:users_account_name],
             passhash: post[:users_passhash],
@@ -184,7 +191,7 @@ module Isuconp
             del_flg: post[:users_del_flg],
             created_at: post[:users_created_at],
           }
-          posts.push(post) if post[:user][:del_flg] == 0
+          posts.push(formatted_post) if formatted_post[:user][:del_flg] == 0
           break if posts.length >= POSTS_PER_PAGE
         end
 
@@ -305,7 +312,9 @@ module Isuconp
       results = db.query("select #{columns.join(', ')} from posts join users on posts.user_id = users.id order by posts.created_at desc limit 20;")
       posts = make_posts_improved(results)
 
-      erb :index, layout: :layout, locals: { posts: posts, me: me }
+      # erb :index, layout: :layout, locals: { posts: posts, me: me }
+      json posts
+      # json results.to_a
     end
 
     get '/@:account_name' do
